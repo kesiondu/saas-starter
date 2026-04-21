@@ -12,6 +12,8 @@ import { grantCredits } from "@/lib/db/queries/credits"
 import { getPlanByCode } from "@/config/plans"
 import { getPackageByCode } from "@/config/credit-packages"
 import { CreditSourceType } from "@/lib/db/schema"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { NotificationType } from "@/lib/db/schema"
 
 export const runtime = "nodejs"
 
@@ -75,7 +77,11 @@ async function handleSubscriptionUpsert(sub: Stripe.Subscription) {
     return
   }
 
-  await upsertUserSubscription({
+  const isFirstActivation =
+    sub.status === "active" &&
+    !sub.previous_attributes?.current_period_start
+
+  const result = await upsertUserSubscription({
     userId,
     planId: plan.id,
     stripeSubscriptionId: sub.id,
@@ -85,14 +91,48 @@ async function handleSubscriptionUpsert(sub: Stripe.Subscription) {
     cancelAtPeriodEnd: sub.cancel_at_period_end,
     canceledAt: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
   })
+
+  // 首次激活时立即发放初始积分
+  if (isFirstActivation && result.isNew) {
+    const planConfig = getPlanByCode(
+      plan.planCode as "free" | "pro" | "premium",
+    )
+    if (planConfig && planConfig.creditsPerMonth > 0) {
+      await grantCredits({
+        userId,
+        credits: planConfig.creditsPerMonth,
+        validityDays: planConfig.creditValidityDays,
+        sourceType: CreditSourceType.SUBSCRIPTION,
+        sourceRef: `subscription:${sub.id}:initial`,
+      })
+      console.log(
+        `[stripe.webhook] subscription initial credits granted user=${userId} plan=${plan.planCode}`,
+      )
+    }
+  }
 }
 
 async function handleSubscriptionDeleted(sub: Stripe.Subscription) {
+  const userId = parseUserId(sub.metadata?.userId)
   await setSubscriptionStatus(sub.id, {
     status: "canceled",
     canceledAt: new Date(),
     cancelAtPeriodEnd: false,
   })
+
+  // 通知用户订阅已取消
+  if (userId) {
+    try {
+      await dispatchNotification({
+        userId,
+        type: NotificationType.SUBSCRIPTION_CANCELED,
+        title: "Subscription Canceled",
+        content: "Your subscription has been canceled. You can still use remaining credits.",
+      })
+    } catch (err) {
+      console.error("[stripe.webhook] failed to notify subscription cancellation", err)
+    }
+  }
 }
 
 /**
