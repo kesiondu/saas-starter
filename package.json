@@ -5,6 +5,7 @@
     "build": "next build",
     "start": "next start",
     "db:seed": "npx tsx lib/db/seed.ts",
+    "stripe:listen": "stripe listen --forward-to localhost:3000/api/stripe/webhook",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
@@ -22,7 +23,8 @@
     "drizzle-orm": "^0.43.1",
     "lucide-react": "^0.511.0",
     "next": "15.6.0-canary.59",
-    "next-auth": "^4.24.14",
+    "next-auth": "5.0.0-beta.25",
+    "stripe": "^18.0.0",
     "postcss": "^8.5.3",
     "postgres": "^3.4.5",
     "radix-ui": "^1.4.2",

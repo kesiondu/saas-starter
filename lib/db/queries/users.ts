@@ -18,14 +18,12 @@ export interface UpsertOAuthUserInput {
 /**
  * OAuth 登录时同步用户 + 第三方账号。
  * 新用户自动发放注册奖励积分（NEW_USER_BONUS）。
- * 返回内部 users.id。
  */
 export async function upsertOAuthUser(input: UpsertOAuthUserInput): Promise<{
   id: number
   isNewUser: boolean
 }> {
   return await db.transaction(async (tx) => {
-    // 1) 通过 provider + providerAccountId 精确查找已绑定账号
     const existingAccount = await tx.query.oauthAccounts.findFirst({
       where: and(
         eq(oauthAccounts.provider, input.provider),
@@ -33,7 +31,6 @@ export async function upsertOAuthUser(input: UpsertOAuthUserInput): Promise<{
       ),
     })
 
-    // 2) 查找/创建 user（以 email 作为主键身份）
     let userRow = await tx.query.users.findFirst({
       where: eq(users.email, input.email),
     })
@@ -62,7 +59,6 @@ export async function upsertOAuthUser(input: UpsertOAuthUserInput): Promise<{
         .where(eq(users.id, userRow.id))
     }
 
-    // 3) upsert oauth_accounts
     if (existingAccount) {
       await tx
         .update(oauthAccounts)
@@ -83,7 +79,6 @@ export async function upsertOAuthUser(input: UpsertOAuthUserInput): Promise<{
       })
     }
 
-    // 4) 新用户赠送积分
     if (isNewUser && NEW_USER_BONUS.credits > 0) {
       const expiresAt = new Date()
       expiresAt.setDate(expiresAt.getDate() + NEW_USER_BONUS.validityDays)
@@ -103,4 +98,15 @@ export async function upsertOAuthUser(input: UpsertOAuthUserInput): Promise<{
 
 export async function getUserById(id: number) {
   return db.query.users.findFirst({ where: eq(users.id, id) })
+}
+
+/** 更新用户的 stripeCustomerId（幂等） */
+export async function setUserStripeCustomerId(
+  userId: number,
+  stripeCustomerId: string,
+) {
+  await db
+    .update(users)
+    .set({ stripeCustomerId })
+    .where(eq(users.id, userId))
 }

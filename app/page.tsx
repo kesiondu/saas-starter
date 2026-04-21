@@ -16,6 +16,9 @@ export default async function HomePage() {
           <span>AI Video Editor</span>
         </Link>
         <nav className="flex items-center gap-2">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/pricing">Pricing</Link>
+          </Button>
           {session?.user ? (
             <Button asChild size="sm">
               <Link href="/dashboard">Open dashboard</Link>
@@ -45,6 +48,9 @@ export default async function HomePage() {
               Get started
               <ArrowRight className="size-4" />
             </Link>
+          </Button>
+          <Button asChild variant="outline" size="lg" className="h-11 px-6">
+            <Link href="/pricing">See pricing</Link>
           </Button>
         </div>
       </section>
