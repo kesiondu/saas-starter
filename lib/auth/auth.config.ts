@@ -35,7 +35,13 @@ export default {
       const isLoggedIn = !!auth?.user
       const { pathname } = nextUrl
 
-      const protectedRoutes = ["/dashboard", "/billing", "/settings"]
+      const protectedRoutes = [
+        "/dashboard",
+        "/billing",
+        "/settings",
+        "/tasks",
+        "/notifications",
+      ]
       const isProtected = protectedRoutes.some((p) => pathname.startsWith(p))
 
       if (isProtected && !isLoggedIn) return false

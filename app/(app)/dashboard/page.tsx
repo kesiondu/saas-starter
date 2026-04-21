@@ -106,8 +106,11 @@ export default async function DashboardPage() {
       <section className="rounded-lg border border-dashed border-border p-10 text-center">
         <h2 className="text-lg font-semibold">Start a new edit</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Task creation flow will land here in the next module.
+          Pick a model and describe the video you want to generate.
         </p>
+        <Button asChild size="sm" className="mt-4">
+          <Link href="/tasks/new">New video task</Link>
+        </Button>
       </section>
     </div>
   )

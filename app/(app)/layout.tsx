@@ -2,17 +2,24 @@ import Link from "next/link"
 import type { ReactNode } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SignOutButton } from "@/components/auth/sign-out-button"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 import { requireUser } from "@/lib/auth/session"
 import { getUserAvailableCredits } from "@/lib/db/queries/credits"
+import { countUnreadNotifications } from "@/lib/db/queries/notifications"
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/tasks", label: "Tasks" },
   { href: "/billing", label: "Billing" },
 ]
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser()
-  const credits = await getUserAvailableCredits(user.id)
+  const [credits, unread] = await Promise.all([
+    getUserAvailableCredits(user.id),
+    countUnreadNotifications(user.id),
+  ])
+
   const initials = (user.name ?? user.email ?? "U")
     .split(/\s+/)
     .map((s) => s[0])
@@ -51,6 +58,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             >
               {credits} credits
             </span>
+            <NotificationBell unreadCount={unread} />
             <Avatar className="size-8">
               {user.avatarUrl ? (
                 <AvatarImage src={user.avatarUrl} alt="" />

@@ -208,6 +208,7 @@ export const tasks = pgTable(
     inputParams: jsonb('input_params').notNull(), // 输入参数
     outputUrl: text('output_url'), // 结果文件URL（不做文件管理，只存URL）
     errorMessage: text('error_message'),
+    providerRequestId: varchar('provider_request_id', { length: 255 }), // Fal request_id 等
     createdAt: timestamp('created_at').notNull().defaultNow(),
     startedAt: timestamp('started_at'),
     completedAt: timestamp('completed_at'),
@@ -220,6 +221,9 @@ export const tasks = pgTable(
     userCreatedIdx: index('tasks_user_created_idx').on(
       table.userId,
       table.createdAt,
+    ),
+    providerRequestIdx: uniqueIndex('tasks_provider_request_id_idx').on(
+      table.providerRequestId,
     ),
   }),
 );
