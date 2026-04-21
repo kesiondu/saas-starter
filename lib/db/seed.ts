@@ -1,84 +1,73 @@
-import { stripe } from '../payments/stripe';
-import { db } from './drizzle';
-import { users, teams, teamMembers } from './schema';
-import { hashPassword } from '@/lib/auth/session';
+/**
+ * 种子脚本：将 config 中的订阅计划与积分包同步到数据库
+ * ------------------------------------------------------
+ * 执行：pnpm db:seed
+ * 幂等：已存在的记录会基于 code 更新
+ */
+import 'dotenv/config';
+import { sql } from 'drizzle-orm';
+import { db, client } from './drizzle';
+import { subscriptionPlans, creditPackages } from './schema';
+import { SUBSCRIPTION_PLANS } from '../../config/plans';
+import { CREDIT_PACKAGES } from '../../config/credit-packages';
 
-async function createStripeProducts() {
-  console.log('Creating Stripe products and prices...');
-
-  const baseProduct = await stripe.products.create({
-    name: 'Base',
-    description: 'Base subscription plan',
-  });
-
-  await stripe.prices.create({
-    product: baseProduct.id,
-    unit_amount: 800, // $8 in cents
-    currency: 'usd',
-    recurring: {
-      interval: 'month',
-      trial_period_days: 7,
-    },
-  });
-
-  const plusProduct = await stripe.products.create({
-    name: 'Plus',
-    description: 'Plus subscription plan',
-  });
-
-  await stripe.prices.create({
-    product: plusProduct.id,
-    unit_amount: 1200, // $12 in cents
-    currency: 'usd',
-    recurring: {
-      interval: 'month',
-      trial_period_days: 7,
-    },
-  });
-
-  console.log('Stripe products and prices created successfully.');
+async function seedPlans() {
+  console.log('[seed] 同步订阅计划...');
+  for (const plan of SUBSCRIPTION_PLANS) {
+    await db
+      .insert(subscriptionPlans)
+      .values({
+        planCode: plan.code,
+        name: plan.name,
+        stripePriceId: plan.stripePriceId,
+        isActive: true,
+      })
+      .onConflictDoUpdate({
+        target: subscriptionPlans.planCode,
+        set: {
+          name: plan.name,
+          stripePriceId: plan.stripePriceId,
+          isActive: true,
+          updatedAt: sql`NOW()`,
+        },
+      });
+    console.log(`  ✓ ${plan.code} - ${plan.name}`);
+  }
 }
 
-async function seed() {
-  const email = 'test@test.com';
-  const password = 'admin123';
-  const passwordHash = await hashPassword(password);
-
-  const [user] = await db
-    .insert(users)
-    .values([
-      {
-        email: email,
-        passwordHash: passwordHash,
-        role: "owner",
-      },
-    ])
-    .returning();
-
-  console.log('Initial user created.');
-
-  const [team] = await db
-    .insert(teams)
-    .values({
-      name: 'Test Team',
-    })
-    .returning();
-
-  await db.insert(teamMembers).values({
-    teamId: team.id,
-    userId: user.id,
-    role: 'owner',
-  });
-
-  await createStripeProducts();
+async function seedPackages() {
+  console.log('[seed] 同步积分包...');
+  for (const pkg of CREDIT_PACKAGES) {
+    await db
+      .insert(creditPackages)
+      .values({
+        packageCode: pkg.code,
+        name: pkg.name,
+        stripePriceId: pkg.stripePriceId,
+        isActive: true,
+      })
+      .onConflictDoUpdate({
+        target: creditPackages.packageCode,
+        set: {
+          name: pkg.name,
+          stripePriceId: pkg.stripePriceId,
+          isActive: true,
+          updatedAt: sql`NOW()`,
+        },
+      });
+    console.log(`  ✓ ${pkg.code} - ${pkg.name}`);
+  }
 }
 
-seed()
-  .catch((error) => {
-    console.error('Seed process failed:', error);
-    process.exit(1);
-  })
-  .finally(() => {
-    console.log('Seed process finished. Exiting...');
-    process.exit(0);
-  });
+async function main() {
+  await seedPlans();
+  await seedPackages();
+  console.log('[seed] 完成');
+  await client.end();
+  process.exit(0);
+}
+
+main().catch((err) => {
+  console.error('[seed] 失败:', err);
+  process.exit(1);
+});
